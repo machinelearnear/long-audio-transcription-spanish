@@ -1,7 +1,7 @@
 # To use:
 #   $ conda env create -f environment.yml
 #   $ conda activate <name>
-name: machinelearnear-long-audio-transcription-es
+name: machinelearnear-long-audio-transcription
 dependencies:
   - python=3.9
   - pip
@@ -12,8 +12,18 @@ dependencies:
   - ffmpeg
   - libsndfile
   - pip:
+    - streamlit
+    - gradio
     - torch
+    - torchaudio
     - transformers
+    - pyctcdecode
+    - https://github.com/kpu/kenlm/archive/master.zip
+    - https://github.com/pyannote/pyannote-audio/archive/develop.zip
+    - thunder-speech
     - youtube-dl
-    - huggingsound
-    # - -r file:requirements.txt
+    - numpy==1.21.0
+    - soundfile
+    - librosa
+    - pydub
+    - nltk
