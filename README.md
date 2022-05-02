@@ -123,6 +123,11 @@ display(HTML(html_diffs(a,b)))
 
 ![Difference between open-source and Google](example.png)
 
+## Keep reading
+- [Pyctcdecode & Speech2text decoding](https://www.youtube.com/watch?v=mp7fHMTnK9A&t=5s)
+- [XLS-R: Large-Scale Cross-lingual Speech Representation Learning on 128 Languages](https://www.youtube.com/watch?v=ic_J7ZCROBM)
+- [Unlocking global speech with Mozilla Common Voice](https://www.youtube.com/watch?v=Vvn984QmAVg)
+
 ## Citations
 ```bibtex
 @misc{grosman2022wav2vec2-xls-r-1b-spanish,
