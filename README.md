@@ -1,11 +1,12 @@
-# Long Audio Transcription
+# Long-form audio transcription with Hugging Face Transformers
 
-`HF Spaces` are a great way to showcase your ML work and are quickly becoming the platform of choice for that. This repository is a short step by step tutorial about how to run an ML application hosted on [Hugging Face Spaces](https://huggingface.co/spaces) inside SageMaker Studio Lab. This is relevant because Studio Lab offers free GPU (Nvidia T4, better than Google Colab) for 4 hours at a time plus 15G of persistant storage. Have a look at this [other repo](https://github.com/machinelearnear/use-gradio-streamlit-sagemaker-studiolab) to understand more about what we are doing here.
+Extract from [Hugging Face](https://huggingface.co/docs/transformers/tasks/asr):
 
-https://user-images.githubusercontent.com/78419164/162445810-18ebea84-1b4f-4b1c-b24d-0feff6ad3ff6.mov
+> Automatic speech recognition (ASR) converts a speech signal to text. It is an example of a sequence-to-sequence task, going from a sequence of audio inputs to textual outputs. Voice assistants like Siri and Alexa utilize ASR models to assist users.
+
+This guide will give you a quick step by step tutorial about how to create an end to end Automatic Speech Recognition (ASR) solution that deals with long-form audio e.g. podcasts, videos, audiobooks, etc.
 
 ## Getting started
-- [SageMaker StudioLab Explainer Video](https://www.youtube.com/watch?v=FUEIwAsrMP4)
 - [Intro to Automatic Speech Recognition on 🤗](https://huggingface.co/tasks/automatic-speech-recognition)
 - [Robust Speech Challenge Results on 🤗](https://huggingface.co/spaces/speech-recognition-community-v2/FinalLeaderboard)
 - [Mozilla Common Voice 9.0](https://huggingface.co/datasets/mozilla-foundation/common_voice_9_0)
@@ -16,100 +17,123 @@ https://user-images.githubusercontent.com/78419164/162445810-18ebea84-1b4f-4b1c-
 - [How to add timestamps to ASR output](https://github.com/huggingface/transformers/issues/11307)
 - [Host Hugging Face transformer models using Amazon SageMaker Serverless Inference](https://aws.amazon.com/de/blogs/machine-learning/host-hugging-face-transformer-models-using-amazon-sagemaker-serverless-inference/)
 
+## Requirements
+- [SageMaker Studio Lab](https://studiolab.sagemaker.aws/) account. See this [explainer video](https://www.youtube.com/watch?v=FUEIwAsrMP4) to learn more about this.
+- Python>=3.7
+- PyTorch>=1.10
+- Hugging Face Transformers
+- Several audio processing libraries (see `environment.yml`)
+
 ## Step by step tutorial
 
-### Setup your environment
-
-First, you need to get a [SageMaker Studio Lab](https://studiolab.sagemaker.aws/) account. This is completely free and you don't need an AWS account. Because this new service is still in Preview and AWS is looking to reduce fraud (e.g. crypto mining), you will need to wait 1-3 days for your account to be approved. You can see [this video](https://www.youtube.com/watch?v=FUEIwAsrMP4&ab_channel=machinelearnear) for more information.
-
-Now that you have your Studio Lab account, you can follow the steps shown in `launch_app.ipynb` [![Open In SageMaker Studio Lab](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/machinelearnear/open-hf-spaces-in-studiolab/blob/main/launch_app.ipynb).
-
-Click on `Copy to project` in the top right corner. This will open the Studio Lab web interface and ask you whether you want to clone the entire repo or just the Notebook. Clone the entire repo and click `Yes` when asked about building the `Conda` environment automatically. You will now be running on top of a `Python` environment with `Streamlit` and `Gradio` already installed along with other libraries.
-
-In order to browse to Streamlit or Gradio, you will need to add `proxy/6006/` at the end of your Studio Lab url. It will look like this:
-
-```python
-studiolab_url = f'https://{studiolab_domain}.studio.{studiolab_region}.sagemaker.aws/studiolab/default/jupyter/proxy/6006/'
-```
-
 ### Clone repo and install dependencies
+
+Follow the steps shown in `example_w_HuggingFace.ipynb` [![Open In SageMaker Studio Lab](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/machinelearnear/long-audio-transcription-spanish/blob/main/example_w_HuggingFace.ipynb) Click on `Copy to project` in the top right corner. This will open the Studio Lab web interface and ask you whether you want to clone the entire repo or just the Notebook. Clone the entire repo and click `Yes` when asked about building the `Conda` environment automatically. You will now be running on top of a `Python` environment with `Streamlit` and `Gradio` already installed along with other libraries.
+
+### Download audio directly from YouTube
 
 We first point to the Spaces url that we want to run on Studio Lab:
 
 ```python
-hf_spaces_url = 'https://huggingface.co/spaces/swzamir/Restormer' # choose any demo you like from https://huggingface.co/spaces
-hf_spaces_folder = hf_spaces_url.split('/')[-1]
-```
-
-Clone the repo and install dependencies.
-
-```python
-import os
 from os.path import exists as path_exists
-if not path_exists(hf_spaces_folder):
-    os.system(f'git clone {hf_spaces_url}')
-    os.system(f'pip install -r {hf_spaces_folder}/requirements.txt')
+YouTubeID = 'YOUR_YOUTUBE_ID' 
+OutputFile = 'YOUR_AUDIO_FILE.m4a'
+if not path_exists(OutputFile):
+    !youtube-dl -o $OutputFile $YouTubeID --extract-audio --restrict-filenames -f 'bestaudio[ext=m4a]'
 ```
 
-Within every `Space` there's a `README.md` with information about the app. Example below:
-
-```
----
-title: Image Restoration with Restormer
-emoji: 🌍
-colorFrom: yellow
-colorTo: yellow
-sdk: gradio
-sdk_version: 2.9.0
-app_file: app.py
-pinned: false
-license: afl-3.0
----
-
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces#reference
-```
-
-We parse that file into a dict to make our lives easier down the line. We use:
+### Process using `Librosa`/`HuggingFace`
 
 ```python
-def info_from_readme(fname):
-    readme = {}
-    with open(fname) as f:
-        for line in f:
-            if not line.find(':') > 0 or 'Check' in line: continue
-            (k,v) = line.split(':')
-            readme[(k)] = v.strip().replace('\n','')
-    
-    return readme
+import librosa
+from transformers import pipeline
+pipe = pipeline(model=model_name)
+speech, sample_rate = librosa.load(OutputFile,sr=16000)
+transcript = pipe(speech, chunk_length_s=10, stride_length_s=(4,2))
 ```
 
-### Launch your ML application
-
-So now we have our repo, we have installed the required libraries, and all we have to do is launch our app. For that we define a very simple function that takes the local path to the repo, prints the Studio Lab url your application will run on, and then launches either Streamlit or Gradio on the right server port depending on the type of `sdk` that was used on HF Spaces:
+### Split long audio into smaller chunks with `PyDub`
 
 ```python
-def launch_demo(folder_name, url=studiolab_url):
-    if path_exists(folder_name):
-        readme = info_from_readme(f'{folder_name}/README.md')
-    else:
-        print('No `README.md` file')
-        return
+import torch
+import pydub
+import array
+import numpy as np
+from pydub.utils import mediainfo
+from pydub import AudioSegment
+from pydub.utils import get_array_type
+
+def audio_resampler(sound, sample_rate=16000):
+    sound = sound.set_frame_rate(sample_rate)
+    left = sound.split_to_mono()[0]
+    bit_depth = left.sample_width * 8
+    array_type = pydub.utils.get_array_type(bit_depth)
+    numeric_array = np.array(array.array(array_type, left._data))
     
-    print('\033[1m' + f'Demo: {readme["title"]}\n' + '\033[0m')
-    print(f'Please wait a few seconds before you click the link below to load your demo \n{url}\n')
-        
-    if readme["sdk"] == 'gradio':
-        os.system(f'export GRADIO_SERVER_PORT=6006 && cd {folder_name} && python {readme["app_file"]}')
-    elif readme["title"] == 'streamlit':
-        os.sytem(f'cd {folder_name} && streamlit run {readme["app_file"]} --server.port 6006') # 6006 or 80/8080 are open
-    else:
-        print('This notebook will not work with static apps hosted on `Spaces`')
+    return np.asarray(numeric_array,dtype=np.double), sample_rate
+
+pydub_speech = pydub.AudioSegment.from_file(OutputFile)
+speech, sample_rate = audio_resampler(pydub_speech)
+
+transcript = ''
+for chunk in np.array_split(speech,len(speech)/sample_rate/30)[:2]: # split every 30 seconds, take only first minute
+    output = pipe(chunk)
+    transcript = transcript + ' ' + output['text']
+    print(output)
+    
+transcript = transcript.strip()
 ```
 
-All we need to do now is to run `launch_demo(hf_spaces_folder)`.
+### Split long audio into chunks based on detected silence
 
-## References
-- See more about Restormer here: https://huggingface.co/spaces/swzamir/Restormer
+```python
+import librosa
+from librosa import display
+import matplotlib.pyplot as plt
+
+speech, sample_rate = librosa.load(OutputFile,sr=16000)
+non_mute_sections_in_speech = librosa.effects.split(speech,top_db=50)
+
+transcript = ''
+for chunk in non_mute_sections_in_speech[:6]:
+    speech_chunk = speech[chunk[0]:chunk[1]]
+    output = pipe(speech_chunk)
+    transcript = transcript + ' ' + output['text']
+    print(output)
+    
+transcript = transcript.strip()
+```
+
+### Compare results between open-source vs Google-generated
+
+```python
+from youtube_transcript_api import YouTubeTranscriptApi
+transcript = YouTubeTranscriptApi.get_transcript(YouTubeID,languages=['es'])
+transcript_from_YouTube = ' '.join([i['text'] for i in transcript])
+
+from utils import *
+from IPython.display import HTML, display
+base = "transcripts/transcribed_speech_hf_pipelines.txt"
+compare = "transcripts/transcribed_speech_generated_by_youtube.txt"
+a = open(base,'r').readlines()[0][:1000]
+b = open(compare,'r').readlines()[0][:1000]
+print(f'Original: {base} / Compare: {compare}')
+display(HTML(html_diffs(a,b)))
+```
+
+![Difference between open-source and Google](example.png)
+
+## Citations
+```bibtex
+@misc{grosman2022wav2vec2-xls-r-1b-spanish,
+  title={XLS-R Wav2Vec2 Spanish by Jonatas Grosman},
+  author={Grosman, Jonatas},
+  publisher={Hugging Face},
+  journal={Hugging Face Hub},
+  howpublished={\url{https://huggingface.co/jonatasgrosman/wav2vec2-xls-r-1b-spanish}},
+  year={2022}
+}
+```
 
 ## Disclaimer
 - The content provided in this repository is for demonstration purposes and not meant for production. You should use your own discretion when using the content.

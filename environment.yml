@@ -27,3 +27,4 @@ dependencies:
     - librosa
     - pydub
     - nltk
+    - youtube-transcript-api
