@@ -17,6 +17,9 @@ This guide will give you a quick step by step tutorial about how to create an en
 - [How to add timestamps to ASR output](https://github.com/huggingface/transformers/issues/11307)
 - [Host Hugging Face transformer models using Amazon SageMaker Serverless Inference](https://aws.amazon.com/de/blogs/machine-learning/host-hugging-face-transformer-models-using-amazon-sagemaker-serverless-inference/)
 
+## Video Tutorial in YouTube 
+[![Reconocimiento automático de voz con Python y HuggingFace en segundos (+ Repo)](https://img.youtube.com/vi/wFjPxz22MEs/0.jpg)](https://www.youtube.com/watch?v=wFjPxz22MEs)
+
 ## Requirements
 - [SageMaker Studio Lab](https://studiolab.sagemaker.aws/) account. See this [explainer video](https://www.youtube.com/watch?v=FUEIwAsrMP4) to learn more about this.
 - Python>=3.7
